@@ -50,6 +50,15 @@ def read_10x_filtered_peak_matrix(
         annot.index = annot.chrom + ':' + annot.start.astype(str) + '-' + annot.end.astype(str)
         annot.index.name = 'peak'
 
+        annot = annot.astype({
+            'chrom': 'category',
+            'start': int,
+            'end': int,
+            'gene': str,
+            'distance': 'Int64',
+            'peak_type': 'category'
+        })
+
         adata.uns['peak_annotation'] = annot
     else:
         logging.warn('peak_annotation.tsv not found in the supplied dir')
