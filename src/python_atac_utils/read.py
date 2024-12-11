@@ -5,6 +5,7 @@ import logging
 import anndata as ad
 import pandas as pd
 import scanpy as sc
+import muon.atac as ac
 
 
 def read_10x_filtered_peak_matrix(
@@ -45,30 +46,33 @@ def read_10x_filtered_peak_matrix(
     )
     var.index = var.chrom + ':' + var.start.astype(str) + '-' + var.end.astype(str)
 
-    if isfile(join(dir, 'peak_annotation.tsv')):
-        annot = pd.read_csv(join(dir, 'peak_annotation.tsv'), sep='\t')
-        annot.index = annot.chrom + ':' + annot.start.astype(str) + '-' + annot.end.astype(str)
-        annot.index.name = 'peak'
-
-        annot = annot.astype({
-            'chrom': 'category',
-            'start': int,
-            'end': int,
-            'gene': str,
-            'distance': 'Int64',
-            'peak_type': 'category'
-        })
-
-        adata.uns['peak_annotation'] = annot
-    else:
-        logging.warn('peak_annotation.tsv not found in the supplied dir')
-
-    if isfile(join(dir, 'fragments.tsv.gz')):
-        adata.uns['fragments'] = join(dir, 'fragments.tsv.gz')
-    else:
-        logging.warn('fragments.tsv.gz not found in the supplied dir')
-
     adata.obs = obs
     adata.var = var
+
+    annot_path = join(dir, "peak_annotation.tsv")
+    if isfile(annot_path):
+        # Copied from muon
+        try:
+            ac.tl.add_peak_annotation(adata, annot_path)
+            print(
+                f"Added peak annotation from {annot_path} to .uns['atac']['peak_annotation']"
+            )
+        except AttributeError:
+            logging.warn(
+                f"Peak annotation from {annot_path} could not be added. Please check the annotation file is formatted correctly."
+            )
+
+    frag_path = join(dir, "fragments.tsv.gz")
+    if isfile(frag_path):
+        print(f"Located fragments file: {frag_path}")
+        try:
+            ac.tl.locate_fragments(adata, frag_path)
+        except ImportError:
+            logging.warn(
+                "Pysam is not installed. To work with the fragments file please install pysam (pip install pysam)."
+            )
+            if "files" not in adata.uns:
+                adata.uns["files"] = dict()
+            adata.uns["files"]["fragments"] = frag_path
 
     return adata
